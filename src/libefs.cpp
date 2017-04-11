@@ -9,12 +9,17 @@ TOpenFile *_oft;
 // Open file table counter
 int _oftCount=0;
 
+int setupOftEntry (const char* filename, int inode, long filesize, int mode);
+
 // Mounts a paritition given in fsPartitionName. Must be called before all
 // other functions
 void initFS(const char *fsPartitionName, const char *fsPassword)
 {
 	mountFS(fsPartitionName, fsPassword);
 	_fs = getFSInfo();
+
+	//max number files = number of available blocks
+	_oft = calloc(sizeof(TOpenFile), _fs->maxFiles);
 }
 
 // Opens a file in the partition. Depending on mode, a new file may be created
@@ -23,78 +28,133 @@ void initFS(const char *fsPartitionName, const char *fsPassword)
 // disk is full when mode is MODE_CREATE, etc.
 int openFile(const char *filename, unsigned char mode)
 {
-	unsigned int index;
-	updateDirectory();
-
-	unsigned int attr = getattr(filename);
-	if(mode == MODE_CREATE) {
-		index = makeDirectoryEntry(filename, attr, getFileLength(filename));
-		_oft->writePtr = 0;
-		_oft->readPtr = 0;
-		_oft->blockSize = _fs->blockSize;
-		_oft->inodeBuffer = makeInodeBuffer();
-		loadInode(_oft->inodeBuffer, index);
-		_oft->buffer = makeDataBuffer();
-
-	} else {
-		index = findFile(filename);
+	int inode = findFile(filename);
+	switch(mode) {
+	case MODE_NORMAL: {
+		if (_result == FS_OK) {
+			return setupOftEntry(filename, inode, getFileLength(filename), mode);
+		} else {
+			printf("ERR CODE: %s" + _result);
+			return -1;
+		}
+		break;
 	}
-
-	if(index == FS_FILE_NOT_FOUND)
-	{
+	case MODE_CREATE: {
+		if (_result == FS_OK ) {
+			//file exists
+			return setupOftEntry(filename, inode, getFileLength(filename), mode);
+		}
+		else {
+			//attempt to create new file
+			inode = makeDirectoryEntry(filename, 128, 0);
+			if (_result == FS_OK) {
+				//success
+				updateDirectory();
+				return setupOftEntry(filename, inode, 0, mode);
+			} else {
+				//error encountered
+				printf("ERR CODE: %s" + _result);
+				return -1;
+			}
+		}
+		break;
+	}
+	case MODE_READ_ONLY: {
+		if (_result == FS_OK) {
+			return setupOftEntry(filename, inode, getFileLength(filename), mode);
+		} else {
+			printf("ERR CODE: %s" + _result);
+			return -1;
+		}
+		break;
+	}
+	case MODE_READ_APPEND: {
+		if(_result == FS_OK) {
+			return setupOftEntry(filename, inode, getFileLength(filename), mode);
+		}
+		else {
+			printf("ERR CODE: %s" + _result);
+			return -1;
+		}
+		break;
+	}
+	default:
 		return -1;
 	}
-
-	_oftCount++;
-	
-	_oft->openMode = mode;
-	_oft->inode = index;
-	//updateDirectory();
-	return index;
 }
 
 // Write data to the file. File must be opened in MODE_NORMAL or MODE_CREATE modes. Does nothing
 // if file is opened in MODE_READ_ONLY mode.
 void writeFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount)
 {
-	/*
-	unsigned long blockNum, count = 0, size;
-	int num = 0;
-	char* buffer1;
-	memcpy(buffer1, buffer, dataCount*dataSize);
-	if(!_oft->openMode == MODE_READ_ONLY) {
-		while(count < dataCount*dataSize ) {
-			if(_oft->openMode == MODE_CREATE) {
-				//when full buffer
-				if(dataSize*dataCount -count >= _oft->blockSize) {
-					size = _oft->blockSize;
-				} else {
-					size = dataSize*dataCount - count;
-				}
-				blockNum = findFreeBlock();
-				strncpy(_oft->buffer, buffer1+count, size);
-				markBlockBusy(blockNum);
-				loadInode(_oft->inodeBuffer, fp);
-				_oft->inodeBuffer[_oft->writePtr] = blockNum;
-				writeBlock(_oft->buffer, blockNum);
-				_oft->writePtr = _oft->writePtr + 1;
-				saveInode(_oft->inodeBuffer, fp);
-				updateFreeList();
-				updateDirectory();
-				unmountFS();
-				count += size;
-			} else if(_oft->openMode == MODE_NORMAL) {
+	if (_oft[fp].openMode == MODE_READ_ONLY) {
+		printf("ERR : READ_ONLY");
+	}
 
-			}
+	unsigned long leftToWrite = dataSize * dataCount;
+	unsigned long currentBlock;
+
+	while (leftToWrite > 0) {
+		currentBlock = returnBlockNumFromInode(_oft[fp].inodeBuffer, _oft[fp].filePtr);
+
+		if (currentBlock == 0) {
+			//assign new block
+			currentBlock = findFreeBlock();
+			markBlockBusy(currentBlock);
+			setBlockNumInInode(_oft[fp].inodeBuffer, _oft[fp].filePtr, currentBlock);
+		}
+		unsigned int written, remainingBlockSpace;
+		remainingBlockSpace = _fs->blockSize - _oft[fp].writePtr;
+		//if we have enough space left in buffer
+		if ( remainingBlockSpace > leftToWrite) {
+			written = leftToWrite;
+			strncpy(_oft[fp].buffer + _oft[fp].writePtr,
+					(char*)buffer+(dataSize*dataCount-leftToWrite), written);
+			leftToWrite -= written;
+
+			//update ptr
+			_oft[fp].writePtr += written;
+			_oft[fp].filePtr += written;
+		}
+		else {
+			written = remainingBlockSpace;
+			strncpy(_oft[fp].buffer + _oft[fp].writePtr,
+					(char*)buffer+(dataSize*dataCount-leftToWrite), written);
+			leftToWrite -= written;
+
+			//update ptr
+			_oft[fp].writePtr += written - _fs->blockSize;
+			_oft[fp].filePtr += written;
+
+			//assign new block
+			writeBlock(_oft[fp].buffer, currentBlock);
+			currentBlock = findFreeBlock();
+			markBlockBusy(currentBlock);
+			setBlockNumInInode(_oft[fp].inodeBuffer, _oft[fp].filePtr, currentBlock);
 		}
 	}
-	*/
+	updateDirectoryFileLength(_oft[fp].filename, _oft[fp].filePtr);
+	saveInode(_oft[fp].inodeBuffer, _oft[fp].inode);
+
 }
 // Flush the file data to the disk. Writes all data buffers, updates directory,
 // free list and inode for this file.
 void flushFile(int fp)
 {
+	if (_oft[fp].openMode == MODE_READ_ONLY) {
+		return;
+	}
+
+	if (_oft[fp].writePtr != 1) {
+		memset(_oft[fp].buffer+_oft[fp].writePtr, 0, _fs->blockSize - _oft[fp].writePtr);
+		writeBlock(_oft[fp].buffer, returnBlockNumFromInode(_oft[fp].inodeBuffer, _oft[fp].filePtr));
+	}
+	updateDirectory();
+	updateFreeList();
+	saveInode(_oft[fp].inodeBuffer, _oft[fp].inode);
+
 }
+
 
 // Read data from the file.
 void readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount)
@@ -127,3 +187,28 @@ void closeFile(int fp);
 // Unmount file system.
 void closeFS();
 
+int setupOftEntry (const char* filename, int inode, long filesize, int mode) {
+	int i = _oftCount;
+
+	_oft[i].filename = filename;
+	_oft[i].openMode = mode;
+	_oft[i].blockSize = _fs->blockSize;
+
+	unsigned long* inodeBuffer = makeInodeBuffer();
+	loadInode(inodeBuffer, inode);
+	_oft[i].inode = inode;
+	_oft[i].inodeBuffer = inodeBuffer;
+	_oft[i].buffer = makeDataBuffer();
+	_oft[i].readPtr = 0;
+	if (mode == MODE_READ_APPEND) {
+		_oft[i].writePtr = filesize % _fs->blockSize;
+		_oft[i].filePtr = filesize;
+		//set buffer to last block
+		readBlock(_oft[i].buffer, returnBlockNumFromInode(_oft[i].inodeBuffer, filesize));
+	} else {
+		_oft[i].writePtr = 0;
+		_oft[i].filePtr = 0;
+	}
+	_oftCount++;
+	return 1;
+}

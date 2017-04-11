@@ -14,6 +14,7 @@ enum
 /* Open File Table structure. Feel free to modify */
 typedef struct oft
 {
+	const char* filename;
   unsigned char openMode; // Mode selected
   unsigned int blockSize; // Size of each block
   unsigned long inode; // Inode pointer
