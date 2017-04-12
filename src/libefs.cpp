@@ -19,7 +19,8 @@ void initFS(const char *fsPartitionName, const char *fsPassword)
 	_fs = getFSInfo();
 
 	//max number files = number of available blocks
-	_oft = calloc(sizeof(TOpenFile), _fs->maxFiles);
+	_oft = (TOpenFile*)calloc(_fs->maxFiles, sizeof(TOpenFile));
+
 }
 
 // Opens a file in the partition. Depending on mode, a new file may be created
@@ -157,23 +158,32 @@ void flushFile(int fp)
 
 
 // Read data from the file.
+//buffer: blockSize
 void readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount)
 {
 	char* buffer1;
-	memcpy(buffer1, buffer, dataCount*dataSize);
+	
 	long count = 0;
-	int index = 0;
-	while(count < dataSize*dataCount){
-		
-		loadInode(_oft->inodeBuffer, fp);
-		unsigned long blockNum = _oft->inodeBuffer[index++];
-		readBlock(_oft->buffer, blockNum);
-		_oft->readPtr += sizeof(_oft->buffer);
-		strcat(buffer1, _oft->buffer);
-		count += sizeof(_oft->buffer);
+    //increase size to dataCount*dataSize
+	if (dataSize * dataCount > _fs->blockSize) {
+
+		buffer = static_cast<char*>(buffer) + (dataSize*dataCount - _fs->blockSize);
 	}
-	memcpy(buffer, buffer1, dataCount*dataSize);
-	_oft->readPtr = 0;
+	unsigned long blockNum;
+	//stop until desired count or end of file reached
+	while(count < dataSize*dataCount && count < _oft[fp].filePtr ){
+		//get the blockNum
+		blockNum = returnBlockNumFromInode(_oft[fp].inodeBuffer, _oft[fp].readPtr);
+		//read 
+		readBlock(buffer1, blockNum);
+		strcat( (char*) buffer, buffer1);
+		//update curr pos
+		_oft[fp].readPtr += sizeof(_oft[fp].buffer);
+		
+		count += sizeof(_oft[fp].buffer);
+	}
+	//memcpy(buffer, buffer1, dataCount*dataSize);
+	_oft[fp].readPtr = 0;
 
 }
 
