@@ -11,9 +11,16 @@ int main(int ac, char **av)
 		// Load the file system
 		initFS("part.dsk", av[2]);
 		TFileSystemStruct *fs = getFSInfo();
-		int fp = openFile(av[1], MODE_CREATE);
+		unsigned int index = findFile(av[1]);
+		if (index != FS_FILE_NOT_FOUND) {
+			printf("Duplicate File Found!\n");
+			return -1;
+		}
 
-		if (fp == -1)
+		FILE *fp = fopen(av[1], "r");
+		int efp = openFile(av[1], MODE_CREATE);
+
+		if (efp == -1)
 		{
 			printf("\nUnable to open source file %s\n\n", av[1]);
 			return -1;
@@ -23,23 +30,25 @@ int main(int ac, char **av)
 			printf("\nDuplicate file %s exist\n\n", av[1]);
 
 		}
-		char *buffer;
+
 
 		// Allocate the buffer for reading
-		buffer = makeDataBuffer();
-
-		// Read the file
-		readFile(fp, &buffer, sizeof(char), fs->blockSize);
+		char *buffer = (char*)calloc(sizeof(char), fs->blockSize);
 
 		//write file
-		writeFile(fp, &buffer, sizeof(char), fs->blockSize);
-	
-		flushFile(fp);
+		unsigned long len; ;
+		while((len= fread(buffer, sizeof(char), fs->blockSize, fp)) > 0)
+		{
+			printf("Calling write with length : %lu", len);
+			writeFile(efp, buffer, sizeof(char), len);
+		}
+		flushFile(efp);
 
 		// Free data and inode buffer
-		closeFile(fp);
+		closeFile(efp);
 
 		// Unmount
 		closeFS();
+		printf("Checked in File");
 		return 0;
 }
