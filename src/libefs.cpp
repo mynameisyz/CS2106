@@ -176,7 +176,7 @@ void readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCoun
 		blockNum = returnBlockNumFromInode(_oft[fp].inodeBuffer, _oft[fp].readPtr);
 		//read 
 		readBlock(buffer1, blockNum);
-		strcat( (char*) buffer, buffer1);
+		strcat((char*) buffer, buffer1);
 		//update curr pos
 		_oft[fp].readPtr += sizeof(_oft[fp].buffer);
 		
@@ -189,13 +189,37 @@ void readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCoun
 
 // Delete the file. Read-only flag (bit 2 of the attr field) in directory listing must not be set. 
 // See TDirectory structure.
-void delFile(const char *filename);
+void delFile(const char *filename) {
+
+}
 
 // Close a file. Flushes all data buffers, updates inode, directory, etc.
-void closeFile(int fp);
+void closeFile(int fp) {
+	//flush modified buffers to disk
+	flushFile(fp);
+	
+	// release buffer
+	free(_oft[fp].buffer);
+	free(_oft[fp].inodeBuffer);
+	
+	//update file descriptor
+	updateDirectoryFileLength(_oft[fp].filename, _oft[fp].filePtr);
+	// Write the free list
+	updateFreeList();
+	// Write the diretory
+	updateDirectory();
+
+	//free OFT entry
+	for (int i = fp; i < _oftCount; ++i)
+		_oft[i] = _oft[i + 1];
+	
+	_oftCount--;
+}
 
 // Unmount file system.
-void closeFS();
+void closeFS() {
+	unmountFS();
+}
 
 int setupOftEntry (const char* filename, int inode, long filesize, int mode) {
 	int i = _oftCount;
