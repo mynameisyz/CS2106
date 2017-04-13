@@ -49,6 +49,9 @@ int main(int ac, char **av)
 
 		// Unmount
 		closeFS();
+
+		fclose(fp);
+		free(buffer);
 		printf("Checked in File");
 		return 0;
 }

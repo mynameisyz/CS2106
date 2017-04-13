@@ -169,44 +169,43 @@ void flushFile(int fp)
 
 // Read data from the file.
 //buffer: blockSize
-void readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount)
+int readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount)
 {
-	long remaining = dataCount;
-    //increase size to dataCount*dataSize
-	/*
-	if (dataSize * dataCount > _fs->blockSize) {
-
-		buffer = static_cast<char*>(buffer) + (dataSize*dataCount - _fs->blockSize);
-	}
-	*/
-
+	long remainingToRead = dataCount;
 	unsigned long blockNum;
-	//stop until desired count or end of file reached
-	printf("READING FILE");
+	unsigned long totalRead = 0;
 
-	while(remaining > 0 ){
+	//if there are less than dataCount left to read
+	if(dataCount > _oft[fp].filePtr - _oft[fp].readPtr) {
+		remainingToRead = _oft[fp].filePtr - _oft[fp].readPtr;
+	}
+
+
+	printf("Reading File from Block\tReadPtr : %lu\tFilePtr : %lu\n",
+			_oft[fp].readPtr, _oft[fp].filePtr);
+
+	//stop until desired count or end of file reached
+	while(remainingToRead > 0 && _oft[fp].readPtr < _oft[fp].filePtr){
 		//get the blockNum
 		blockNum = returnBlockNumFromInode(_oft[fp].inodeBuffer, _oft[fp].readPtr);
 		//read 
 		readBlock(_oft[fp].buffer, blockNum);
 		unsigned int read;
-		if (remaining < _oft[fp].blockSize ) {
-			read = remaining;
+		if (remainingToRead < dataCount ) {
+			read = remainingToRead;
 		} else {
-			read = _oft[fp].blockSize;
+			read = dataCount;
 		}
+		memcpy(buffer, _oft[fp].buffer, read);
 
-		memcpy((char*)(buffer + _oft[fp].readPtr), _oft[fp].buffer, read);
 		//update curr pos
 		_oft[fp].readPtr += read;
-		
-		remaining -= read;
-		printf("Reading file - ReadPtr : %u\tRead: %u\tBufferPtr: %d\n", _oft[fp].readPtr, read, buffer + sizeof(char)*_oft[fp].readPtr);
+		remainingToRead -= read;
+		printf("ReadPtr : %u\tRead: %u\tBufferPtr: %d\n",
+				_oft[fp].readPtr, read, buffer + sizeof(char)*_oft[fp].readPtr);
+		totalRead += read;
 	}
-
-	//memcpy(buffer, buffer1, dataCount*dataSize);
-	_oft[fp].readPtr = 0;
-
+	return totalRead;
 }
 
 // Delete the file. Read-only flag (bit 2 of the attr field) in directory listing must not be set. 
@@ -262,13 +261,12 @@ int setupOftEntry (const char* filename, int inode, long filesize, int mode) {
 	_oft[i].readPtr = 0;
 	if (mode == MODE_READ_APPEND) {
 		_oft[i].writePtr = filesize % _fs->blockSize;
-		_oft[i].filePtr = filesize;
 		//set buffer to last block
 		readBlock(_oft[i].buffer, returnBlockNumFromInode(_oft[i].inodeBuffer, filesize));
 	} else {
 		_oft[i].writePtr = 0;
-		_oft[i].filePtr = 0;
 	}
+	_oft[i].filePtr = filesize;
 	_oftCount++;
 	return i;
 }
