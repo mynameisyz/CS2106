@@ -41,7 +41,7 @@ int openFile(const char *filename, unsigned char mode);
 // dataSize = size of each data unit. Use sizeof(.) to determine.
 // dataCount = # of data units to write.
 // Note dataSize * dataCount can exceed the size of one block.
-void writeFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount);
+int writeFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount);
 
 // Flush the file data to the disk. Writes all data buffers, updates directory,
 // free list and inode for this file.

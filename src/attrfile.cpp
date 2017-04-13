@@ -17,6 +17,7 @@ int main(int ac, char **av)
 
 		if(index == FS_FILE_NOT_FOUND) {
 			printf("File NOT FOUND\n");
+			return -1;
 		} 
 		string attr = av[2];
 		unsigned int attrStored = getattr(av[1]);

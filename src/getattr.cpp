@@ -29,6 +29,7 @@ int main(int ac, char **av)
 		}
 		else {
 			printf("FILE NOT FOUND\n");
+			return -1;
 		}
 	}
 

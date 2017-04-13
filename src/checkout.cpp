@@ -35,16 +35,10 @@ int main(int ac, char **av)
 			continue;
 		}
 	}
-
-	//DELETE FILE?
-
 	delFile(av[1]);
-	fclose(toWrite);
-
 
 	//Close
 	fclose(fp);
-
 	free(buffer);
 	closeFS();
 

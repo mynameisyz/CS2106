@@ -11,6 +11,8 @@ int _oftCount = 0;
 
 int setupOftEntry(const char* filename, int inode, long filesize, int mode);
 
+int debug = 0;
+
 // Mounts a paritition given in fsPartitionName. Must be called before all
 // other functions
 void initFS(const char *fsPartitionName, const char *fsPassword)
@@ -18,9 +20,8 @@ void initFS(const char *fsPartitionName, const char *fsPassword)
 	mountFS(fsPartitionName, fsPassword);
 	_fs = getFSInfo();
 
-	//max number files = number of available blocks
+	//max number files
 	_oft = (TOpenFile*)calloc(_fs->maxFiles, sizeof(TOpenFile));
-
 }
 
 // Opens a file in the partition. Depending on mode, a new file may be created
@@ -36,7 +37,7 @@ int openFile(const char *filename, unsigned char mode)
 			return setupOftEntry(filename, inode, getFileLength(filename), mode);
 		}
 		else {
-			printf("ERR CODE: %lu\n", _result);
+			if(debug) printf("ERR CODE: %lu\n", _result);
 			return -1;
 		}
 		break;
@@ -44,7 +45,7 @@ int openFile(const char *filename, unsigned char mode)
 	case MODE_CREATE: {
 		if (_result == FS_OK) {
 			//file exists
-			printf("FILE EXISTS\n");
+			if(debug) printf("FILE EXISTS\n");
 			return setupOftEntry(filename, inode, getFileLength(filename), mode);
 		}
 		else {
@@ -57,7 +58,7 @@ int openFile(const char *filename, unsigned char mode)
 			}
 			else {
 				//error encountered
-				printf("ERR CODE: %lu\n", _result);
+				if(debug) printf("ERR CODE: %lu\n", _result);
 				return -1;
 			}
 		}
@@ -68,7 +69,7 @@ int openFile(const char *filename, unsigned char mode)
 			return setupOftEntry(filename, inode, getFileLength(filename), mode);
 		}
 		else {
-			printf("ERR CODE: %lu\n", _result);
+			if(debug) printf("ERR CODE: %lu\n", _result);
 			return -1;
 		}
 		break;
@@ -78,7 +79,7 @@ int openFile(const char *filename, unsigned char mode)
 			return setupOftEntry(filename, inode, getFileLength(filename), mode);
 		}
 		else {
-			printf("ERR CODE: %lu\n", _result);
+			if(debug) printf("ERR CODE: %lu\n", _result);
 			return -1;
 		}
 		break;
@@ -90,27 +91,32 @@ int openFile(const char *filename, unsigned char mode)
 
 // Write data to the file. File must be opened in MODE_NORMAL or MODE_CREATE modes. Does nothing
 // if file is opened in MODE_READ_ONLY mode.
-void writeFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount)
+int writeFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount)
 {
 	if (_oft[fp].openMode == MODE_READ_ONLY) {
-		printf("ERR : READ_ONLY");
+		if(debug) printf("ERR : READ_ONLY");
 	}
 
 	unsigned long leftToWrite = dataCount;
 	unsigned long currentBlock;
 
-	printf("WRITING TO FILE");
+	if(debug) printf("WRITING TO FILE");
 	while (leftToWrite > 0) {
 
 		currentBlock = returnBlockNumFromInode(_oft[fp].inodeBuffer, _oft[fp].filePtr);
-		printf("Writing to block# %lu\n", currentBlock);
+		if(debug) printf("Writing to block# %lu\n", currentBlock);
 		if (currentBlock == 0) {
 			//assign new block
 			currentBlock = findFreeBlock();
+			if (_result != FS_OK) {
+				printf("ERR CODE: %d", _result);
+				return -1;
+			}
 			markBlockBusy(currentBlock);
 			setBlockNumInInode(_oft[fp].inodeBuffer, _oft[fp].filePtr, currentBlock);
-			printf("Assigning  block# %lu\n", currentBlock);
+			if(debug) printf("Assigning  block# %lu\n", currentBlock);
 		}
+
 		unsigned int written, remainingBlockSpace;
 		remainingBlockSpace = _fs->blockSize - _oft[fp].writePtr;
 		//if we have enough space left in buffer
@@ -123,7 +129,8 @@ void writeFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCou
 			//update ptr
 			_oft[fp].writePtr += written;
 			_oft[fp].filePtr += written;
-			printf("Written to buffer size : %u left : %lu\n", written, leftToWrite);
+			if(debug) printf("Written to buffer # %p size : %u left : %lu\n",
+					_oft[fp].buffer, written, leftToWrite);
 		}
 		else {
 			written = remainingBlockSpace;
@@ -135,42 +142,47 @@ void writeFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCou
 			_oft[fp].writePtr += written - _fs->blockSize;
 			_oft[fp].filePtr += written;
 
-			printf("Written to block# %lu size : %u left : %lu\n", currentBlock, written, leftToWrite);
+			if(debug) printf("Written to block# %lu size : %u left : %lu Buffer # %p\n",
+					currentBlock, written, leftToWrite, _oft[fp].buffer);
 
 			//assign new block
 			writeBlock(_oft[fp].buffer, currentBlock);
 			currentBlock = findFreeBlock();
+			if (_result != FS_OK) {
+				printf("ERR CODE: %d", _result);
+				return -1;
+			}
 			markBlockBusy(currentBlock);
 			setBlockNumInInode(_oft[fp].inodeBuffer, _oft[fp].filePtr, currentBlock);
-			printf("Assigning  block# %lu\n", currentBlock);
+			if(debug) printf("Assigning  block# %lu\n", currentBlock);
 		}
 	}
-	printf("FILE WRITTEN!\n");
+	printf("FILE WRITTEN! Buffer\n");
 	updateDirectoryFileLength(_oft[fp].filename, _oft[fp].filePtr);
 	saveInode(_oft[fp].inodeBuffer, _oft[fp].inode);
-
+	return 1;
 }
 // Flush the file data to the disk. Writes all data buffers, updates directory,
 // free list and inode for this file.
 void flushFile(int fp)
 {
-	printf("Flushing file\n");
+
 	if (_oft[fp].openMode == MODE_READ_ONLY) {
 		return;
 	}
 
 	if (_oft[fp].writePtr > 0) {
+		if(debug) printf("Flushing file\n");
 		memset(_oft[fp].buffer + _oft[fp].writePtr, 0, _fs->blockSize - _oft[fp].writePtr);
 		writeBlock(_oft[fp].buffer, returnBlockNumFromInode(_oft[fp].inodeBuffer, _oft[fp].filePtr));
+		_oft[fp].writePtr = 0;
+		if(debug) printf("Written data in buffer # %p\n", _oft[fp].buffer);
 	}
 	updateDirectory();
 	updateFreeList();
 	saveInode(_oft[fp].inodeBuffer, _oft[fp].inode);
-
+	if(debug) printf("FLUSHED FILE\n");
 }
-
-
-
 
 // Read data from the file.
 //buffer: blockSize
@@ -186,11 +198,8 @@ int readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount
 		remainingToRead = fileLength - _oft[fp].filePtr;
 	}
 
-
-	printf("Reading File from Block\tReadPtr : %ud\tFilePtr : %ud\n",
-
-		_oft[fp].readPtr, _oft[fp].filePtr);
-
+	if(debug) printf("Reading File from Block\tReadPtr : %ud\tFilePtr : %ud\n",
+			_oft[fp].readPtr, _oft[fp].filePtr);
 
 	//stop until desired count or end of file reached
 	while (remainingToRead > 0 && _oft[fp].filePtr < fileLength) {
@@ -220,18 +229,30 @@ int readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount
 // See TDirectory structure.
 void delFile(const char *filename) {
 	unsigned int attr = getattr(filename);
-	printf("enter delete\n");
-	if (attr != FS_FILE_NOT_FOUND) {
 
-		int mask = 1 << 2;
-		int masked_n = attr & mask;
-		int thebit = masked_n >> 2;
-		printf("the bit: %d\n", thebit);	
-		if (thebit == 0) {
-			printf("%s deleted\n", filename);
-			delDirectoryEntry(filename);
-			updateDirectory();
+	if (attr == FS_FILE_NOT_FOUND) {
+		printf("FILE NOT FOUND\n");
+		return;
+	}
+
+	int mask = 1 << 2;
+	int masked_n = attr & mask;
+	int thebit = masked_n >> 2;
+	if(debug) printf("the bit: %d\n", thebit);
+	if (thebit == 0) {
+		if(debug) printf("%s deleted\n", filename);
+		unsigned int index = findFile(filename);
+		unsigned long* inodeBuffer = makeInodeBuffer();
+		loadInode(inodeBuffer, index);
+		unsigned int blockCount = (getFileLength(filename) / _fs->blockSize)+1;
+		for (int i = 0; i < blockCount; i++) {
+			markBlockFree(inodeBuffer[i]);
+			inodeBuffer[i] = 0;
 		}
+		updateFreeList();
+		delDirectoryEntry(filename);
+		updateDirectory();
+		saveInode(inodeBuffer, index);
 	}
 }
 
@@ -243,7 +264,6 @@ void closeFile(int fp) {
 	// release buffer
 	free(_oft[fp].buffer);
 	free(_oft[fp].inodeBuffer);
-
 	//update file descriptor
 	updateDirectoryFileLength(_oft[fp].filename, _oft[fp].filePtr);
 	// Write the free list
@@ -254,7 +274,6 @@ void closeFile(int fp) {
 	//free OFT entry
 	for (int i = fp; i < _oftCount; ++i)
 		_oft[i] = _oft[i + 1];
-
 	_oftCount--;
 }
 
@@ -285,7 +304,6 @@ int setupOftEntry(const char* filename, int inode, long filesize, int mode) {
 		_oft[i].writePtr = filesize % _fs->blockSize;
 		//set buffer to last block
 		readBlock(_oft[i].buffer, returnBlockNumFromInode(_oft[i].inodeBuffer, filesize));
-
 	}
 	else {
 		_oft[i].writePtr = 0;
