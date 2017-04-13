@@ -229,7 +229,19 @@ int readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount
 // See TDirectory structure.
 void delFile(const char *filename) {
 	unsigned int attr = getattr(filename);
+<<<<<<< HEAD
+=======
+	int ndx = findFile(filename);
+	if (ndx != FS_FILE_NOT_FOUND && ndx < _oftCount) {
+		printf("enter delete: %d\n", ndx);
+		closeFile(ndx);
 
+	}
+
+	if (attr != FS_FILE_NOT_FOUND) {
+>>>>>>> branch 'master' of https://github.com/mynameisyz/CS2106.git
+
+<<<<<<< HEAD
 	if (attr == FS_FILE_NOT_FOUND) {
 		printf("FILE NOT FOUND\n");
 		return;
@@ -248,6 +260,16 @@ void delFile(const char *filename) {
 		for (int i = 0; i < blockCount; i++) {
 			markBlockFree(inodeBuffer[i]);
 			inodeBuffer[i] = 0;
+=======
+		int mask = 1 << 2;
+		int masked_n = attr & mask;
+		int thebit = masked_n >> 2;
+		//	printf("the bit: %d\n", thebit);	
+		if (thebit == 0) {
+			//	printf("%s deleted\n", filename);
+			delDirectoryEntry(filename);
+			updateDirectory();
+>>>>>>> branch 'master' of https://github.com/mynameisyz/CS2106.git
 		}
 		updateFreeList();
 		delDirectoryEntry(filename);
