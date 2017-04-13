@@ -22,7 +22,7 @@ int main(int ac, char **av)
 	printf("Size written: %d\n", written);
 
 	//DELETE FILE?
-
+	delFile(av[1]);
 	fclose(toWrite);
 	free(buffer);
 	closeFS();

@@ -2,32 +2,32 @@
 
 int main(int ac, char **av)
 {
-	if(ac != 3)
+	if (ac != 2)
 	{
 		printf("\nUsage: %s <file to check>\n", av[0]);
 		printf("Prints: 'R' = Read only, 'W' = Read/Write\n\n");
 		return -1;
 	}
 	else {
+		// Mount the file system
+	    mountFS("part.dsk", "2106s2");
 		unsigned int index = getattr(av[1]);
-		unsigned bitswanted = 3;
-		if(index != FS_FILE_NOT_FOUND) {
-			unsigned *bits = (unsigned*)malloc(sizeof(int) * bitswanted);
+//		unsigned bitswanted = 3;
+		if (index != FS_FILE_NOT_FOUND) {
 
-			int k;
-			for(k=0; k < bitswanted; k++){
-				int mask =  1 << k;
-				int masked_n = 3 & mask;
-				int thebit = masked_n >> k;
-				bits[k] = thebit;
-			}
+			int mask = 1 << 2;
+			int masked_n = index & mask;
+			int thebit = masked_n >> 2;
 
-			if(bits[2] == 1) {
+
+			if (thebit == 1) {
 				printf("R\n");
-			} else {
+			}
+			else {
 				printf("W\n");
 			}
-		} else {
+		}
+		else {
 			printf("FILE NOT FOUND\n");
 		}
 	}

@@ -7,9 +7,9 @@ TFileSystemStruct *_fs;
 TOpenFile *_oft;
 
 // Open file table counter
-int _oftCount=0;
+int _oftCount = 0;
 
-int setupOftEntry (const char* filename, int inode, long filesize, int mode);
+int setupOftEntry(const char* filename, int inode, long filesize, int mode);
 
 // Mounts a paritition given in fsPartitionName. Must be called before all
 // other functions
@@ -30,18 +30,19 @@ void initFS(const char *fsPartitionName, const char *fsPassword)
 int openFile(const char *filename, unsigned char mode)
 {
 	int inode = findFile(filename);
-	switch(mode) {
+	switch (mode) {
 	case MODE_NORMAL: {
 		if (_result == FS_OK) {
 			return setupOftEntry(filename, inode, getFileLength(filename), mode);
-		} else {
+		}
+		else {
 			printf("ERR CODE: %lu\n", _result);
 			return -1;
 		}
 		break;
 	}
 	case MODE_CREATE: {
-		if (_result == FS_OK ) {
+		if (_result == FS_OK) {
 			//file exists
 			printf("FILE EXISTS\n");
 			return setupOftEntry(filename, inode, getFileLength(filename), mode);
@@ -53,7 +54,8 @@ int openFile(const char *filename, unsigned char mode)
 				//success
 				updateDirectory();
 				return setupOftEntry(filename, inode, 0, mode);
-			} else {
+			}
+			else {
 				//error encountered
 				printf("ERR CODE: %lu\n", _result);
 				return -1;
@@ -64,14 +66,15 @@ int openFile(const char *filename, unsigned char mode)
 	case MODE_READ_ONLY: {
 		if (_result == FS_OK) {
 			return setupOftEntry(filename, inode, getFileLength(filename), mode);
-		} else {
+		}
+		else {
 			printf("ERR CODE: %lu\n", _result);
 			return -1;
 		}
 		break;
 	}
 	case MODE_READ_APPEND: {
-		if(_result == FS_OK) {
+		if (_result == FS_OK) {
 			return setupOftEntry(filename, inode, getFileLength(filename), mode);
 		}
 		else {
@@ -111,10 +114,10 @@ void writeFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCou
 		unsigned int written, remainingBlockSpace;
 		remainingBlockSpace = _fs->blockSize - _oft[fp].writePtr;
 		//if we have enough space left in buffer
-		if ( remainingBlockSpace > leftToWrite) {
+		if (remainingBlockSpace > leftToWrite) {
 			written = leftToWrite;
 			memcpy(_oft[fp].buffer + _oft[fp].writePtr,
-					(char*)buffer+(dataSize*(dataCount-leftToWrite)), written);
+				(char*)buffer + (dataSize*(dataCount - leftToWrite)), written);
 			leftToWrite -= written;
 
 			//update ptr
@@ -125,7 +128,7 @@ void writeFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCou
 		else {
 			written = remainingBlockSpace;
 			memcpy(_oft[fp].buffer + _oft[fp].writePtr,
-					(char*)buffer+(dataSize*(dataCount-leftToWrite)), written);
+				(char*)buffer + (dataSize*(dataCount - leftToWrite)), written);
 			leftToWrite -= written;
 
 			//update ptr
@@ -157,7 +160,7 @@ void flushFile(int fp)
 	}
 
 	if (_oft[fp].writePtr != 1) {
-		memset(_oft[fp].buffer+_oft[fp].writePtr, 0, _fs->blockSize - _oft[fp].writePtr);
+		memset(_oft[fp].buffer + _oft[fp].writePtr, 0, _fs->blockSize - _oft[fp].writePtr);
 		writeBlock(_oft[fp].buffer, returnBlockNumFromInode(_oft[fp].inodeBuffer, _oft[fp].filePtr));
 	}
 	updateDirectory();
@@ -172,7 +175,7 @@ void flushFile(int fp)
 void readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount)
 {
 	long remaining = dataCount;
-    //increase size to dataCount*dataSize
+	//increase size to dataCount*dataSize
 	/*
 	if (dataSize * dataCount > _fs->blockSize) {
 
@@ -184,24 +187,25 @@ void readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCoun
 	//stop until desired count or end of file reached
 	printf("READING FILE");
 
-	while(remaining > 0 ){
+	while (remaining > 0) {
 		//get the blockNum
 		blockNum = returnBlockNumFromInode(_oft[fp].inodeBuffer, _oft[fp].readPtr);
 		//read 
 		readBlock(_oft[fp].buffer, blockNum);
 		unsigned int read;
-		if (remaining < _oft[fp].blockSize ) {
+		if (remaining < _oft[fp].blockSize) {
 			read = remaining;
-		} else {
+		}
+		else {
 			read = _oft[fp].blockSize;
 		}
 
-		memcpy((char*)(buffer + _oft[fp].readPtr), _oft[fp].buffer, read);
+		memcpy((char*)buffer +  _oft[fp].readPtr, _oft[fp].buffer, read);
 		//update curr pos
 		_oft[fp].readPtr += read;
-		
+
 		remaining -= read;
-		printf("Reading file - ReadPtr : %u\tRead: %u\tBufferPtr: %d\n", _oft[fp].readPtr, read, buffer + sizeof(char)*_oft[fp].readPtr);
+		printf("Reading file - ReadPtr : %u\tRead: %u\tBufferPtr: %d\n", _oft[fp].readPtr, read, (char*)buffer + sizeof(char)*_oft[fp].readPtr);
 	}
 
 	//memcpy(buffer, buffer1, dataCount*dataSize);
@@ -212,18 +216,31 @@ void readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCoun
 // Delete the file. Read-only flag (bit 2 of the attr field) in directory listing must not be set. 
 // See TDirectory structure.
 void delFile(const char *filename) {
+	unsigned int attr = getattr(filename);
+	printf("enter delete\n");
+	if (attr != FS_FILE_NOT_FOUND) {
 
+		int mask = 1 << 2;
+		int masked_n = attr & mask;
+		int thebit = masked_n >> 2;
+		printf("the bit: %d\n", thebit);	
+		if (thebit == 0) {
+			printf("%s deleted\n", filename);
+			delDirectoryEntry(filename);
+			updateDirectory();
+		}
+	}
 }
 
 // Close a file. Flushes all data buffers, updates inode, directory, etc.
 void closeFile(int fp) {
 	//flush modified buffers to disk
 	flushFile(fp);
-	
+
 	// release buffer
 	free(_oft[fp].buffer);
 	free(_oft[fp].inodeBuffer);
-	
+
 	//update file descriptor
 	updateDirectoryFileLength(_oft[fp].filename, _oft[fp].filePtr);
 	// Write the free list
@@ -234,7 +251,7 @@ void closeFile(int fp) {
 	//free OFT entry
 	for (int i = fp; i < _oftCount; ++i)
 		_oft[i] = _oft[i + 1];
-	
+
 	_oftCount--;
 }
 
@@ -247,7 +264,7 @@ void closeFS() {
 	free(_oft);
 }
 
-int setupOftEntry (const char* filename, int inode, long filesize, int mode) {
+int setupOftEntry(const char* filename, int inode, long filesize, int mode) {
 	int i = _oftCount;
 
 	_oft[i].filename = filename;
@@ -265,7 +282,8 @@ int setupOftEntry (const char* filename, int inode, long filesize, int mode) {
 		_oft[i].filePtr = filesize;
 		//set buffer to last block
 		readBlock(_oft[i].buffer, returnBlockNumFromInode(_oft[i].inodeBuffer, filesize));
-	} else {
+	}
+	else {
 		_oft[i].writePtr = 0;
 		_oft[i].filePtr = 0;
 	}

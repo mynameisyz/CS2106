@@ -7,11 +7,15 @@ int main(int ac, char **av)
 		printf("\nUsage: %s <file to delete>\n\n", av[0]);
 		return -1;
 	} else {
-		unsigned int ndx = delDirectoryEntry(av[1]);
-		if(ndx == FS_FILE_NOT_FOUND)
+		initFS("part.dsk", "2106s2");
+
+		delFile(av[1]);
+
+		if(_result == FS_FILE_NOT_FOUND)
 		{
 			printf("FILE NOT FOUND\n");
 		}
+		delFile(av[1]);
 	}
 	return 0;
 }
