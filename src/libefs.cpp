@@ -174,10 +174,11 @@ int readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount
 	long remainingToRead = dataCount;
 	unsigned long blockNum;
 	unsigned long totalRead = 0;
+	unsigned long fileLength = getFileLength(_oft[fp].filename);
 
 	//if there are less than dataCount left to read
-	if(dataCount > _oft[fp].filePtr - _oft[fp].readPtr) {
-		remainingToRead = _oft[fp].filePtr - _oft[fp].readPtr;
+	if(dataCount > fileLength - _oft[fp].filePtr) {
+		remainingToRead = fileLength - _oft[fp].filePtr;
 	}
 
 
@@ -185,9 +186,9 @@ int readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount
 			_oft[fp].readPtr, _oft[fp].filePtr);
 
 	//stop until desired count or end of file reached
-	while(remainingToRead > 0 && _oft[fp].readPtr < _oft[fp].filePtr){
+	while(remainingToRead > 0 && _oft[fp].filePtr < fileLength){
 		//get the blockNum
-		blockNum = returnBlockNumFromInode(_oft[fp].inodeBuffer, _oft[fp].readPtr);
+		blockNum = returnBlockNumFromInode(_oft[fp].inodeBuffer, _oft[fp].filePtr);
 		//read 
 		readBlock(_oft[fp].buffer, blockNum);
 		unsigned int read;
@@ -199,7 +200,7 @@ int readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount
 		memcpy(buffer, _oft[fp].buffer, read);
 
 		//update curr pos
-		_oft[fp].readPtr += read;
+		_oft[fp].filePtr += read;
 		remainingToRead -= read;
 		printf("ReadPtr : %u\tRead: %u\tBufferPtr: %d\n",
 				_oft[fp].readPtr, read, buffer + sizeof(char)*_oft[fp].readPtr);
@@ -260,13 +261,16 @@ int setupOftEntry (const char* filename, int inode, long filesize, int mode) {
 	_oft[i].buffer = makeDataBuffer();
 	_oft[i].readPtr = 0;
 	if (mode == MODE_READ_APPEND) {
+		_oft[i].filePtr= filesize;
 		_oft[i].writePtr = filesize % _fs->blockSize;
 		//set buffer to last block
 		readBlock(_oft[i].buffer, returnBlockNumFromInode(_oft[i].inodeBuffer, filesize));
+
 	} else {
 		_oft[i].writePtr = 0;
+		_oft[i].filePtr = 0;
 	}
-	_oft[i].filePtr = filesize;
+
 	_oftCount++;
 	return i;
 }
