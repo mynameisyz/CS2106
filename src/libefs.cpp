@@ -188,7 +188,9 @@ int readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount
 
 
 	printf("Reading File from Block\tReadPtr : %ud\tFilePtr : %ud\n",
+
 		_oft[fp].readPtr, _oft[fp].filePtr);
+
 
 	//stop until desired count or end of file reached
 	while (remainingToRead > 0 && _oft[fp].filePtr < fileLength) {

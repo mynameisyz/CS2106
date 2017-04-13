@@ -2,6 +2,7 @@
 
 int main(int ac, char **av)
 {
+	int debug = 1;
 	if(ac != 3)
 	{
 		printf("\nUsage: %s <file to check out> <password>\n\n", av[0]);
@@ -28,7 +29,8 @@ int main(int ac, char **av)
 		read = readFile(index, buffer, sizeof(char), fs->blockSize);
 		written = fwrite(buffer, sizeof(char), read, fp);
 		remaining -= read;
-		printf("Checkout - Written: %lu\tRead: %lu\t Remaining: %ld\n", written, read, remaining);
+		if(debug)
+			printf("Checkout - Written: %lu\tRead: %lu\t Remaining: %ld\n", written, read, remaining);
 		if(read < fs->blockSize) {
 			continue;
 		}
@@ -41,14 +43,10 @@ int main(int ac, char **av)
 
 
 	//Close
-	printf("1\n");
 	fclose(fp);
-	printf("2\n");
 
 	free(buffer);
-	printf("3\n");
 	closeFS();
-	printf("Checked Out: %d\n", index);
 
 	return 0;
 }
