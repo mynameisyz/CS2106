@@ -220,15 +220,21 @@ int readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount
 // See TDirectory structure.
 void delFile(const char *filename) {
 	unsigned int attr = getattr(filename);
-	printf("enter delete\n");
+	int ndx = findFile(filename);
+	if (ndx != FS_FILE_NOT_FOUND && ndx < _oftCount) {
+		printf("enter delete: %d\n", ndx);
+		closeFile(ndx);
+
+	}
+
 	if (attr != FS_FILE_NOT_FOUND) {
 
 		int mask = 1 << 2;
 		int masked_n = attr & mask;
 		int thebit = masked_n >> 2;
-		printf("the bit: %d\n", thebit);	
+		//	printf("the bit: %d\n", thebit);	
 		if (thebit == 0) {
-			printf("%s deleted\n", filename);
+			//	printf("%s deleted\n", filename);
 			delDirectoryEntry(filename);
 			updateDirectory();
 		}

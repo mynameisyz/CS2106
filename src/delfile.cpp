@@ -15,7 +15,7 @@ int main(int ac, char **av)
 		{
 			printf("FILE NOT FOUND\n");
 		}
-		delFile(av[1]);
+		
 	}
 	return 0;
 }
