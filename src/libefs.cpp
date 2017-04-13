@@ -182,7 +182,7 @@ int readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount
 	}
 
 
-	printf("Reading File from Block\tReadPtr : %ld\tFilePtr : %ld\n",
+	printf("Reading File from Block\tReadPtr : %ud\tFilePtr : %ud\n",
 			_oft[fp].readPtr, _oft[fp].filePtr);
 
 	//stop until desired count or end of file reached
@@ -202,8 +202,6 @@ int readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount
 		//update curr pos
 		_oft[fp].filePtr += read;
 		remainingToRead -= read;
-		printf("ReadPtr : %u\tRead: %u\tBufferPtr: %ld\n",
-				_oft[fp].readPtr, read, buffer + sizeof(char)*_oft[fp].readPtr);
 		totalRead += read;
 	}
 	return totalRead;
