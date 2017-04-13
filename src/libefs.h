@@ -51,7 +51,7 @@ void flushFile(int fp);
 // dataSize = size of each data unit. Use sizeof(.) to determine.
 // dataCount = # of data units to write.
 // Note dataSize * dataCount can exceed the size of one block.
-void readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount);
+int readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount);
 
 // Delete the file. Read-only flag (bit 2 of the attr field) in directory listing must not be set. 
 // See TDirectory structure.

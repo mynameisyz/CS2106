@@ -48,7 +48,12 @@ int main(int ac, char **av)
 		closeFile(efp);
 
 		// Unmount
-//		closeFS();
+
+		closeFS();
+
+		fclose(fp);
+		free(buffer);
+
 		printf("Checked in File");
 		return 0;
 }

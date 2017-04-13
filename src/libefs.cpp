@@ -159,7 +159,7 @@ void flushFile(int fp)
 		return;
 	}
 
-	if (_oft[fp].writePtr != 1) {
+	if (_oft[fp].writePtr > 0) {
 		memset(_oft[fp].buffer + _oft[fp].writePtr, 0, _fs->blockSize - _oft[fp].writePtr);
 		writeBlock(_oft[fp].buffer, returnBlockNumFromInode(_oft[fp].inodeBuffer, _oft[fp].filePtr));
 	}
@@ -170,48 +170,49 @@ void flushFile(int fp)
 }
 
 
+
+
 // Read data from the file.
 //buffer: blockSize
-void readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount)
+int readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount)
 {
-	long remaining = dataCount;
-	//increase size to dataCount*dataSize
-	/*
-	if (dataSize * dataCount > _fs->blockSize) {
-
-		buffer = static_cast<char*>(buffer) + (dataSize*dataCount - _fs->blockSize);
-	}
-	*/
-
+	long remainingToRead = dataCount;
 	unsigned long blockNum;
-	//stop until desired count or end of file reached
-	printf("READING FILE");
+	unsigned long totalRead = 0;
+	unsigned long fileLength = getFileLength(_oft[fp].filename);
 
-	while (remaining > 0) {
+	//if there are less than dataCount left to read
+	if (dataCount > fileLength - _oft[fp].filePtr) {
+		remainingToRead = fileLength - _oft[fp].filePtr;
+	}
+
+
+	printf("Reading File from Block\tReadPtr : %ud\tFilePtr : %ud\n",
+		_oft[fp].readPtr, _oft[fp].filePtr);
+
+	//stop until desired count or end of file reached
+	while (remainingToRead > 0 && _oft[fp].filePtr < fileLength) {
 		//get the blockNum
-		blockNum = returnBlockNumFromInode(_oft[fp].inodeBuffer, _oft[fp].readPtr);
+		blockNum = returnBlockNumFromInode(_oft[fp].inodeBuffer, _oft[fp].filePtr);
 		//read 
 		readBlock(_oft[fp].buffer, blockNum);
 		unsigned int read;
-		if (remaining < _oft[fp].blockSize) {
-			read = remaining;
+		if (remainingToRead < dataCount) {
+			read = remainingToRead;
 		}
 		else {
-			read = _oft[fp].blockSize;
+			read = dataCount;
 		}
+		memcpy(buffer, _oft[fp].buffer, read);
 
-		memcpy((char*)buffer +  _oft[fp].readPtr, _oft[fp].buffer, read);
 		//update curr pos
-		_oft[fp].readPtr += read;
-
-		remaining -= read;
-		printf("Reading file - ReadPtr : %u\tRead: %u\tBufferPtr: %d\n", _oft[fp].readPtr, read, (char*)buffer + sizeof(char)*_oft[fp].readPtr);
+		_oft[fp].filePtr += read;
+		remainingToRead -= read;
+		totalRead += read;
 	}
-
-	//memcpy(buffer, buffer1, dataCount*dataSize);
-	_oft[fp].readPtr = 0;
-
+	return totalRead;
 }
+
 
 // Delete the file. Read-only flag (bit 2 of the attr field) in directory listing must not be set. 
 // See TDirectory structure.
@@ -278,15 +279,17 @@ int setupOftEntry(const char* filename, int inode, long filesize, int mode) {
 	_oft[i].buffer = makeDataBuffer();
 	_oft[i].readPtr = 0;
 	if (mode == MODE_READ_APPEND) {
-		_oft[i].writePtr = filesize % _fs->blockSize;
 		_oft[i].filePtr = filesize;
+		_oft[i].writePtr = filesize % _fs->blockSize;
 		//set buffer to last block
 		readBlock(_oft[i].buffer, returnBlockNumFromInode(_oft[i].inodeBuffer, filesize));
+
 	}
 	else {
 		_oft[i].writePtr = 0;
 		_oft[i].filePtr = 0;
 	}
+
 	_oftCount++;
 	return i;
 }
