@@ -156,7 +156,7 @@ void flushFile(int fp)
 		return;
 	}
 
-	if (_oft[fp].writePtr != 1) {
+	if (_oft[fp].writePtr > 0) {
 		memset(_oft[fp].buffer+_oft[fp].writePtr, 0, _fs->blockSize - _oft[fp].writePtr);
 		writeBlock(_oft[fp].buffer, returnBlockNumFromInode(_oft[fp].inodeBuffer, _oft[fp].filePtr));
 	}
@@ -182,7 +182,7 @@ int readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount
 	}
 
 
-	printf("Reading File from Block\tReadPtr : %lu\tFilePtr : %lu\n",
+	printf("Reading File from Block\tReadPtr : %ld\tFilePtr : %ld\n",
 			_oft[fp].readPtr, _oft[fp].filePtr);
 
 	//stop until desired count or end of file reached
@@ -202,7 +202,7 @@ int readFile(int fp, void *buffer, unsigned int dataSize, unsigned int dataCount
 		//update curr pos
 		_oft[fp].filePtr += read;
 		remainingToRead -= read;
-		printf("ReadPtr : %u\tRead: %u\tBufferPtr: %d\n",
+		printf("ReadPtr : %u\tRead: %u\tBufferPtr: %ld\n",
 				_oft[fp].readPtr, read, buffer + sizeof(char)*_oft[fp].readPtr);
 		totalRead += read;
 	}
