@@ -12,7 +12,7 @@ int main(int ac, char **av)
 	} else {
 		printf("av[1] : %s\n", av[1]);
 		//		int index = openFile(av[1], MODE_CREATE);
-		initFS("part.dsk", "2106s2");
+		initFS("part.dsk", "password");
 		int index = findFile(av[1]);
 
 		if(index == FS_FILE_NOT_FOUND) {
@@ -21,19 +21,19 @@ int main(int ac, char **av)
 		string attr = av[2];
 		unsigned int attrStored = getattr(av[1]);
 		if(attr == "R" || attr == "r"){
-			printf("before R attr: %d\n", attrStored);
-			printf("before R 2attr: %d\n", (attrStored >> 2) & 1);
+//			printf("before R attr: %d\n", attrStored);
+//			printf("before R 2attr: %d\n", (attrStored >> 2) & 1);
 			attrStored |= 1 << 2;
 			setattr(av[1], attrStored);
-			printf("attr: %d\n", getattr(av[1]));
-			printf("2attr: %d\n", (getattr(av[1]) >> 2) & 1);
+//			printf("attr: %d\n", getattr(av[1]));
+//			printf("2attr: %d\n", (getattr(av[1]) >> 2) & 1);
 		} else if(attr == "w" || attr  == "W") {
-			printf("before W attr: %d\n", attrStored);
-			printf("before w 2attr: %d\n", (attrStored >> 2) & 1);
+//			printf("before W attr: %d\n", attrStored);
+//			printf("before w 2attr: %d\n", (attrStored >> 2) & 1);
 			attrStored &= ~(1 << 2);
 			//set bit 2 to 0
 			setattr(av[1], attrStored);
-			printf("attr: %d\n", attrStored);
+//			printf("attr: %d\n", attrStored);
 		}
 		updateDirectory();
 	}

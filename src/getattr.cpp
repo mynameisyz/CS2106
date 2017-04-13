@@ -10,7 +10,7 @@ int main(int ac, char **av)
 	}
 	else {
 		// Mount the file system
-	    mountFS("part.dsk", "2106s2");
+	    mountFS("part.dsk", "password");
 		unsigned int index = getattr(av[1]);
 //		unsigned bitswanted = 3;
 		if (index != FS_FILE_NOT_FOUND) {
